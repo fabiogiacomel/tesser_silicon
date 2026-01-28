@@ -1,0 +1,17 @@
+; Tesser Silicon Example: Pisca-Pisca
+; Demonstrate Labels and Loops
+
+START:
+    PUSH 1000      ; Empilha 1000
+    MUI_SET 0      ; Liga LED (ID 0)
+
+    PUSH 20        ; Empilha 20ms
+    WAIT           ; Espera
+
+    PUSH 0         ; Empilha 0
+    MUI_SET 0      ; Desliga LED
+
+    PUSH 20        ; Empilha 20ms
+    WAIT           ; Espera
+
+    JMP START      ; Loop Infinito

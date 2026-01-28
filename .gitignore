@@ -1,0 +1,21 @@
+# Simulação Icarus Verilog
+*.out
+*.vcd
+*.log
+
+# Pastas de build
+# sim/ # User requested sim/ folder in .gitignore but prompt said 'create a file firmware.hex in root'. 
+# Note: Keeping sim/ in gitignore is good practice, but if we need to see output in artifacts, 
+# for now we are running locally so it's fine.
+sim/
+work/
+
+# Vivado / Quartus (Se for gravar em FPGA futuro)
+*.jou
+*.log
+*.pb
+*.wdb
+.Xil/
+db/
+incremental_db/
+output_files/
