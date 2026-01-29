@@ -59,8 +59,10 @@ tesser_silicon/
 ├── sim/                  # Diretório de Build (Ignorado pelo git)
 ├── firmware.hex          # Código de Máquina (Gerado pelo Assembler)
 ├── pisca.tasm            # Código Fonte de Exemplo
-├── tasm.py               # Assembler (Python Tool)
-└── README.md             # Esta documentação
+├── docs/
+│   ├── ARCHITECTURE.md   # Diagrama de Blocos e Mapa da CPU
+│   └── IMPLEMENTATION_PLAN.md
+├── firmware.hex          # Código de Máquina (Gerado pelo Assembler)
 ```
 
 ---

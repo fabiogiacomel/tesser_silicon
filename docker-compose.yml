@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  tesser_lab:
+    build: .
+    container_name: tesser_lab
+    # Mapeia o diretório atual do Windows para /app no Container
+    volumes:
+      - .:/app
+    # Expõe as portas para o Watchtower (WebSocket) e Frontend
+    ports:
+      - "8080:8080"
+      - "3000:3000"
+    # Mantém o container rodando para aceitar comandos via 'exec'
+    command: tail -f /dev/null
+    working_dir: /app

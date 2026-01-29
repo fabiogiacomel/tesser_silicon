@@ -4,11 +4,17 @@
 *.log
 
 # Pastas de build
-# sim/ # User requested sim/ folder in .gitignore but prompt said 'create a file firmware.hex in root'. 
-# Note: Keeping sim/ in gitignore is good practice, but if we need to see output in artifacts, 
-# for now we are running locally so it's fine.
 sim/
 work/
+
+# C Emulator Artifacts
+*.o
+*.exe
+*.dll
+
+# Node.js
+node_modules/
+npm-debug.log
 
 # Vivado / Quartus (Se for gravar em FPGA futuro)
 *.jou
@@ -19,3 +25,8 @@ work/
 db/
 incremental_db/
 output_files/
+
+# Toolchains & Binaries (Avoid commiting heavy tools)
+tools/
+*.hex
+!firmware.hex
