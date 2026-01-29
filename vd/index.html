@@ -3,222 +3,310 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Tesser Watchtower</title>
+    <title>TESSER WATCHTOWER v2.0</title>
     <style>
         :root {
-            --bg-color: #0d0d0d;
-            --text-color: #00ff41;
-            --panel-bg: #1a1a1a;
-            --alert-color: #ff0055;
+            --bg-color: #050505;
+            --grid-color: #1a1a1a;
+            --accent-color: #00ff41;
+            --stack-active: #00ff41;
+            --stack-empty: #222;
+            --text-color: #e0e0e0;
+            --highlight: #ff0055;
         }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Consolas', 'Monaco', monospace;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             height: 100vh;
             margin: 0;
             overflow: hidden;
         }
 
-        h1 {
-            text-shadow: 0 0 10px var(--text-color);
-            margin-bottom: 20px;
-        }
-
-        .dashboard {
+        /* Layout Grid */
+        .container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            width: 80%;
-            max-width: 800px;
+            grid-template-columns: 250px 1fr 300px;
+            width: 100%;
+            gap: 2px;
+            background-color: var(--grid-color);
         }
 
         .panel {
-            background: var(--panel-bg);
-            border: 1px solid var(--text-color);
+            background-color: var(--bg-color);
             padding: 20px;
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
-            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
         }
 
-        .stat-label {
-            font-size: 0.8em;
-            color: #888;
-            display: block;
-            margin-bottom: 5px;
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-color);
         }
 
-        .stat-value {
-            font-size: 1.5em;
+        /* --- STACK VISUALIZATION (Central) --- */
+        .stack-container {
+            display: flex;
+            flex-direction: column-reverse;
+            /* Bottom fills up */
+            height: 100%;
+            justify-content: flex-start;
+            gap: 5px;
+            padding: 20px;
+            background: rgba(0, 255, 65, 0.05);
+            border: 1px dashed #333;
+        }
+
+        .stack-slot {
+            height: 40px;
+            background: var(--stack-empty);
+            border: 1px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            font-size: 1.1rem;
+            color: #555;
+            transition: all 0.2s ease;
+        }
+
+        .stack-slot.active {
+            background: rgba(0, 255, 65, 0.2);
+            border-color: var(--accent-color);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
             font-weight: bold;
         }
 
-        .regs-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+        .stack-idx {
+            font-size: 0.8rem;
+            color: #444;
         }
 
-        .reg-box {
+        /* --- HARDWARE PANEL (Right) --- */
+        .hw-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .servo-card {
+            background: #111;
             border: 1px solid #333;
-            padding: 5px;
+            padding: 10px;
+            border-radius: 4px;
             text-align: center;
         }
 
-        .reg-name {
-            font-size: 0.7em;
+        .servo-card.active {
+            border-color: var(--highlight);
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
+        }
+
+        .servo-val {
+            font-size: 1.5rem;
+            color: var(--highlight);
+            display: block;
+            margin-top: 5px;
+        }
+
+        .servo-label {
+            font-size: 0.8rem;
             color: #aaa;
         }
 
-        .aes-container {
-            margin-top: 10px;
+        /* --- INFO PANEL (Left) --- */
+        .stat-box {
+            margin-bottom: 20px;
         }
 
-        .progress-bar {
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .stat-val-huge {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .log-box {
+            flex-grow: 1;
+            border-top: 1px solid #333;
+            margin-top: auto;
+            font-size: 0.8rem;
+            color: #666;
+            overflow-y: auto;
+            padding-top: 10px;
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 20px;
-            background: #333;
-            margin-top: 5px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .progress-fill {
             height: 100%;
-            width: 0%;
-            background: var(--text-color);
-            transition: width 0.2s ease;
-            box-shadow: 0 0 10px var(--text-color);
-        }
-
-        .status-ready .progress-fill {
-            background: var(--text-color);
-            width: 100%;
-        }
-
-        .status-busy .progress-fill {
-            background: var(--alert-color);
-            width: 50%;
-            /* Fake animation state or based on detailed telemetry */
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                opacity: 0.5;
-            }
-
-            50% {
-                opacity: 1;
-            }
-
-            100% {
-                opacity: 0.5;
-            }
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 50%, rgba(0, 0, 0, 0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
         }
     </style>
 </head>
 
 <body>
 
-    <h1>TESSER WATCHTOWER // v0.1</h1>
+    <div class="scanlines"></div>
 
-    <div class="dashboard">
-        <!-- CPU Core -->
+    <div class="container">
+        <!-- LEFT: SYSTEM INFO -->
         <div class="panel">
-            <span class="stat-label">PROGRAM COUNTER</span>
-            <span id="pc-val" class="stat-value">0x0000</span>
+            <h2>System Status</h2>
 
-            <hr style="border-color: #333; margin: 15px 0;">
+            <div class="stat-box">
+                <span class="stat-label">PROGRAM COUNTER</span>
+                <div id="pc-val" class="stat-value stat-val-huge">0x0000</div>
+            </div>
 
-            <div class="regs-grid" id="regs-container">
-                <!-- Regs generated by JS -->
+            <div class="stat-box">
+                <span class="stat-label">STACK POINTER</span>
+                <div id="sp-val" class="stat-value" style="font-size: 2rem;">0</div>
+            </div>
+
+            <div class="stat-box">
+                <span class="stat-label">CPU STATE</span>
+                <div style="color: var(--accent-color);">RUNNING</div>
+            </div>
+
+            <div class="log-box" id="sys-log">
+                > System Initialized...<br>
+                > Waiting for Uplink...
             </div>
         </div>
 
-        <!-- Peripherals -->
+        <!-- CENTER: STACK VISUALIZATION -->
         <div class="panel">
-            <span class="stat-label">AES ACCELERATOR</span>
-            <div class="aes-container">
-                <span id="aes-status-text">IDLE</span>
-                <div class="progress-bar" id="aes-bar">
-                    <div class="progress-fill" id="aes-fill"></div>
+            <h2>Hardware Stack (LIFO)</h2>
+            <div class="stack-container" id="stack-view">
+                <!-- Generated by JS -->
+            </div>
+        </div>
+
+        <!-- RIGHT: PERIPHERALS -->
+        <div class="panel">
+            <h2>MUI Bus Output</h2>
+            <div class="hw-grid">
+                <!-- Servo 0 -->
+                <div class="servo-card" id="servo-0">
+                    <span class="servo-label">MUI ID #0</span>
+                    <span class="servo-val" id="val-0">---</span>
+                </div>
+                <!-- Servo 1 -->
+                <div class="servo-card" id="servo-1">
+                    <span class="servo-label">MUI ID #1</span>
+                    <span class="servo-val" id="val-1">---</span>
+                </div>
+                <!-- Servo 50 (Exemplo) -->
+                <div class="servo-card" id="servo-50">
+                    <span class="servo-label">SMOOTH #50</span>
+                    <span class="servo-val" id="val-50">---</span>
                 </div>
             </div>
 
-            <div style="margin-top: 30px;">
-                <span class="stat-label">SYSTEM LOG</span>
-                <div id="log-box"
-                    style="height: 100px; overflow-y: auto; font-size: 0.8em; border-top: 1px solid #333; padding-top:5px;">
-                    Connecting...
-                </div>
+            <div style="margin-top: 30px; border: 1px solid #333; padding: 10px;">
+                <span class="stat-label">RAW TELEMETRY</span>
+                <div id="raw-json" style="font-size: 0.7rem; color: #555; word-wrap: break-word;"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Init Registers Visualization
-        const regContainer = document.getElementById('regs-container');
+        const stackView = document.getElementById('stack-view');
+
+        // Init 16 Stack Slots
         for (let i = 0; i < 16; i++) {
-            const div = document.createElement('div');
-            div.className = 'reg-box';
-            div.innerHTML = `<div class="reg-name">R${i}</div><div id="reg-${i}">00</div>`;
-            regContainer.appendChild(div);
+            const slot = document.createElement('div');
+            slot.className = 'stack-slot';
+            slot.id = `stack-${i}`;
+            slot.innerHTML = `<span class="stack-idx">${i}</span><span class="val">---</span>`;
+            // Prepend because flex-direction is column-reverse (0 is bottom)
+            stackView.prepend(slot);
+            // Wait, column-reverse makes 'prepend' put it at bottom? 
+            // Standard: append 0, append 1. 
+            // Reverse: 0 is bottom, 1 is above it.
+            // So we loop 0..15 and APPEND.
+        }
+        // Fix: clear and append correctly
+        stackView.innerHTML = '';
+        for (let i = 0; i < 16; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'stack-slot';
+            slot.id = `stack-${i}`;
+            slot.innerHTML = `<span class="stack-idx">${i}</span><span class="val">EMPTY</span>`;
+            stackView.appendChild(slot);
         }
 
         const socket = new WebSocket('ws://localhost:8080');
-        const logBox = document.getElementById('log-box');
-
-        function log(msg) {
-            const div = document.createElement('div');
-            div.textContent = `> ${msg}`;
-            logBox.prepend(div);
-            if (logBox.childNodes.length > 10) logBox.removeChild(logBox.lastChild);
-        }
-
-        socket.onopen = () => {
-            log("Uplink Established.");
-        };
 
         socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                if (data.msg) {
-                    log(data.msg);
-                    return;
-                }
+                if (data.msg) return;
 
-                // Update PC
+                // 1. Update PC & SP
                 document.getElementById('pc-val').textContent = "0x" + data.pc.toString(16).toUpperCase().padStart(4, '0');
+                document.getElementById('sp-val').textContent = data.sp;
+                document.getElementById('raw-json').textContent = JSON.stringify(data);
 
-                // Update Regs
-                if (data.regs) {
-                    data.regs.forEach((val, idx) => {
-                        const el = document.getElementById(`reg-${idx}`);
-                        if (el) el.textContent = val.toString(16).toUpperCase().padStart(2, '0');
-                    });
+                // 2. Render Stack
+                for (let i = 0; i < 16; i++) {
+                    const el = document.getElementById(`stack-${i}`);
+                    const valEl = el.querySelector('.val');
+
+                    if (i < data.sp) { // Stack slot is used
+                        el.classList.add('active');
+                        // Safe access data.stack[i]
+                        const val = data.stack[i];
+                        valEl.textContent = val + ` (0x${val.toString(16).toUpperCase()})`;
+                    } else {
+                        el.classList.remove('active');
+                        valEl.textContent = "EMPTY";
+                    }
                 }
 
-                // Update AES
-                const aesStatus = data.aes_status || "IDLE";
-                document.getElementById('aes-status-text').textContent = aesStatus;
-                const aesFill = document.getElementById('aes-fill');
-                const aesBar = document.getElementById('aes-bar');
+                // 3. Update Peripherals (Visual Flash)
+                if (data.mui_last_id !== -1) {
+                    const id = data.mui_last_id;
+                    const val = data.mui_last_val;
 
-                aesBar.className = "progress-bar " + (aesStatus.includes("READY") ? "status-ready" : "status-busy");
+                    // Update specific cards if they exist
+                    let card = document.getElementById(`servo-${id}`);
+                    if (!card) {
+                        // Dynamic create would be cool, but fixed for now
+                        // Log to sys
+                        // document.getElementById('sys-log').innerHTML += `> MUI[${id}] set to ${val}<br>`;
+                    } else {
+                        document.getElementById(`val-${id}`).textContent = val;
+
+                        // Flash effect
+                        card.classList.add('active');
+                        setTimeout(() => card.classList.remove('active'), 200);
+                    }
+                }
 
             } catch (e) {
-                console.error("Parse error", e);
+                console.error(e);
             }
-        };
-
-        socket.onclose = () => {
-            log("Connection Lost.");
         };
     </script>
 </body>

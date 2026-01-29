@@ -3,69 +3,96 @@
 #include <stdlib.h>
 #include "tesser_cpu.h"
 #include "tesser_bus.h"
+#include "tesser_telemetry.h"
 
-// Função para Carregar Firmware Externo
-void load_program_from_hex(const char* filename) {
+#ifdef _WIN32
+#include <windows.h>
+#define SLEEP_MS(x) Sleep(x)
+#else
+#include <unistd.h>
+#define SLEEP_MS(x) usleep((x)*1000)
+#endif
+
+// Loader com Fallback
+void load_firmware_or_fallback(const char* filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
-        printf("CRITICAL EXCEPTION: Firmware file '%s' not found.\n", filename);
-        printf("Hint: Run the Assembler first (menu option 6) or check file path.\n");
-        exit(1);
-    }
-
-    uint16_t addr = 0;
-    char line[32];
-    
-    printf("[LOADER] Reading %s...\n", filename);
-    
-    while (fgets(line, sizeof(line), fp)) {
-        // Ignorar linhas vazias ou muito curtas
-        if (strlen(line) < 2) continue;
+        printf("WARNING: '%s' not found. Injecting 'Hardcoded Blink' firmware.\n", filename);
         
+        // Injetar Programa de Teste (PISCA LED - Stack Machine)
+        // 0: PUSH 1000
+        // 3: MUI_SET 0
+        // 5: PUSH 500
+        // 8: WAIT
+        // 9: PUSH 0
+        // 12: MUI_SET 0
+        // 14: PUSH 500
+        // 17: WAIT
+        // 18: JMP 0
+        
+        uint16_t ptr = 0;
+        
+        // PUSH 1000
+        bus_write(ptr++, OP_PUSH); bus_write(ptr++, 0x03); bus_write(ptr++, 0xE8);
+        // MUI_SET 0 (LED ON)
+        bus_write(ptr++, OP_MUI_SET); bus_write(ptr++, 0x00);
+        // PUSH 500
+        bus_write(ptr++, OP_PUSH); bus_write(ptr++, 0x01); bus_write(ptr++, 0xF4);
+        // WAIT
+        bus_write(ptr++, OP_WAIT);
+        
+        // PUSH 0
+        bus_write(ptr++, OP_PUSH); bus_write(ptr++, 0x00); bus_write(ptr++, 0x00);
+        // MUI_SET 0 (LED OFF)
+        bus_write(ptr++, OP_MUI_SET); bus_write(ptr++, 0x00);
+        // PUSH 500
+        bus_write(ptr++, OP_PUSH); bus_write(ptr++, 0x01); bus_write(ptr++, 0xF4);
+        // WAIT
+        bus_write(ptr++, OP_WAIT);
+        
+        // JMP 0 (Loop)
+        bus_write(ptr++, OP_JMP); bus_write(ptr++, 0x00); bus_write(ptr++, 0x00);
+        
+        return;
+    }
+    
+    // Se arquivo existe, carrega
+    char line[64];
+    uint16_t addr = 0;
+    while(fgets(line, sizeof(line), fp)) {
+        if(strlen(line) < 2) continue;
         unsigned int byte_val;
-        // Lê hex da linha
-        if (sscanf(line, "%x", &byte_val) == 1) {
-            bus_write(addr, (uint8_t)byte_val);
-            addr++;
+        if(sscanf(line, "%x", &byte_val) == 1) {
+            bus_write(addr++, (uint8_t)byte_val);
         }
     }
-    
     fclose(fp);
-    printf("[LOADER] Success. %d bytes loaded into RAM.\n", addr);
 }
 
 int main(int argc, char *argv[]) {
-    // 1. Instanciar CPU
+    // printf("--- Tesser Silicon Stack VM (Watchtower Mode) ---\n");
+
     TesserCPU cpu;
     memset(&cpu, 0, sizeof(cpu));
     
-    // Configura contexto global (caso telemetria seja linkada)
+    // Configura contexto global
     extern TesserCPU *g_cpu_context;
     g_cpu_context = &cpu;
     
-    // 2. Carregar Programa
-    // Se passado argumento, usa ele, senão usa padrão "firmware.hex"
-    const char* fw_file = "firmware.hex";
-    if (argc > 1) fw_file = argv[1];
+    // Carrega Firmware ou Fallback
+    const char* filename = "firmware.hex";
+    if (argc > 1) filename = argv[1];
+    load_firmware_or_fallback(filename);
     
-    load_program_from_hex(fw_file);
-    
-    // 3. Execução
-    printf("Starting CPU Execution...\n");
-    
-    // Executa um número razoável de ciclos para ver o programa rodar
-    // Como o pisca.tasm é um loop, 50 ciclos devem mostrar atividade
-    int max_cycles = 50;
-    
-    for (int i = 0; i < max_cycles; i++) {
+    // Infinite Loop for Watchtower Server
+    while (1) {
         cpu_step(&cpu);
-        // Opcional: Imprimir estado a cada passo para debug
-        // printf("PC: %04X | R0: %04X\n", cpu.pc, cpu.regs[0]);
+        dump_json_state();
+        
+        // Pequena pausa para não saturar CPU do host, 
+        // mas o time principal é controlado pelo OP_WAIT do firmware.
+        SLEEP_MS(50); 
     }
-    
-    printf("\n=== Execution Paused after %d cycles ===\n", max_cycles);
-    printf("Final PC: 0x%04X\n", cpu.pc);
-    printf("R0: 0x%04X  R1: 0x%04X\n", cpu.regs[0], cpu.regs[1]);
     
     return 0;
 }
