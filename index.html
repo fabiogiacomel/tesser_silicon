@@ -3,223 +3,380 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>TESSER WATCHTOWER v2.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESSER WATCHTOWER v2.2</title>
     <style>
         :root {
-            --bg-color: #0d0d0d;
-            --text-color: #00ff41;
-            --grid-color: #333;
-            --inactive-color: #222;
-            --active-bg: rgba(0, 255, 65, 0.2);
-            --highlight: #ff0055;
+            --bg-color: #050505;
+            --panel-bg: #0a0a0a;
+            --text-primary: #00ff41;
+            --text-dim: #005f1f;
+            --alert-color: #ff0055;
+            --grid-line: #1f1f1f;
+            --stack-active-bg: rgba(0, 255, 65, 0.1);
+            --stack-active-border: #00ff41;
+            --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
         }
 
         body {
             background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: 'Consolas', monospace;
-            display: flex;
-            height: 100vh;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
             margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
         }
 
-        .container {
+        /* HEADER */
+        header {
+            border-bottom: 1px solid var(--text-dim);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #000;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            background-color: #333;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 5px #333;
+        }
+
+        .status-dot.online {
+            background-color: var(--text-primary);
+            box-shadow: 0 0 10px var(--text-primary);
+        }
+
+        /* LAYOUT */
+        .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            width: 100%;
-            height: 100%;
-            gap: 1px;
-            background-color: var(--grid-color);
+            grid-template-columns: 280px 1fr 350px;
+            flex: 1;
+            border-top: 1px solid var(--grid-line);
         }
 
         .panel {
-            background-color: var(--bg-color);
             padding: 20px;
+            border-right: 1px solid var(--grid-line);
             display: flex;
             flex-direction: column;
-            border-right: 1px solid var(--grid-color);
+            overflow-y: auto;
         }
 
-        h2 {
-            border-bottom: 1px solid var(--text-color);
-            padding-bottom: 10px;
+        .panel h2 {
+            font-size: 0.9rem;
+            color: #666;
             margin-top: 0;
+            border-bottom: 1px dashed #333;
+            padding-bottom: 10px;
             text-transform: uppercase;
         }
 
-        /* COL 1: CPU */
-        .metric {
-            margin-bottom: 20px;
+        /* METRICS (Left Panel) */
+        .metric-group {
+            margin-bottom: 30px;
         }
 
-        .metric-val {
-            font-size: 3em;
+        .metric-label {
+            font-size: 0.8rem;
+            color: #666;
+            display: block;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
             font-weight: bold;
         }
 
-        /* COL 2: STACK */
-        .stack-wrapper {
-            display: flex;
-            flex-direction: column-reverse;
-            /* Bottom is 0 */
-            height: 100%;
-            gap: 2px;
-            justify-content: start;
+        .metric-value.hex {
+            font-size: 1.2rem;
+            color: #888;
         }
 
-        .stack-block {
-            height: 6%;
-            background: var(--inactive-color);
-            border: 1px solid #444;
+        /* STACK (Center Panel) */
+        .stack-tower {
+            display: flex;
+            flex-direction: column-reverse;
+            /* 0 at bottom */
+            gap: 4px;
+            max-width: 400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .stack-slot {
+            height: 35px;
+            background: #111;
+            border: 1px solid #222;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 10px;
-            color: #555;
-            transition: 0.1s;
+            padding: 0 15px;
+            font-size: 1rem;
+            color: #444;
+            position: relative;
         }
 
-        .stack-block.active {
-            background: var(--active-bg);
-            border-color: var(--text-color);
+        .stack-slot.active {
+            background: var(--stack-active-bg);
+            border-color: var(--stack-active-border);
             color: #fff;
-            box-shadow: 0 0 10px var(--active-bg);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
         }
 
-        /* COL 3: HARDWARE */
-        .hw-indicator {
-            width: 100px;
-            height: 100px;
+        .stack-slot.top-of-stack {
+            border-left: 5px solid var(--alert-color);
+        }
+
+        .addr-label {
+            font-size: 0.7rem;
+            color: #555;
+            width: 30px;
+        }
+
+        /* IO & LOGS (Right Panel) */
+        .led-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .led-indicator {
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            background: #222;
-            margin: 20px auto;
-            border: 2px solid #444;
+            background: #111;
+            border: 2px solid #333;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: inset 0 0 20px #000;
+            font-size: 0.8rem;
+            color: #333;
+            transition: all 0.1s;
         }
 
-        .hw-indicator.on {
-            background: var(--highlight);
-            box-shadow: 0 0 30px var(--highlight);
+        .led-indicator.active {
+            background: var(--alert-color);
             border-color: #fff;
             color: #fff;
-            font-weight: bold;
+            box-shadow: 0 0 20px var(--alert-color);
         }
 
-        .io-log {
-            font-size: 0.8em;
+        .console-log {
+            background: #000;
+            border: 1px solid #222;
+            flex: 1;
+            padding: 10px;
+            font-size: 0.8rem;
+            font-family: 'Consolas', monospace;
+            overflow-y: scroll;
             color: #888;
-            margin-top: auto;
-            border-top: 1px solid #333;
-            padding-top: 10px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            border-left: 2px solid transparent;
+            padding-left: 5px;
+        }
+
+        .log-entry.io {
+            border-color: var(--alert-color);
+            color: #fff;
+        }
+
+        .log-entry.sys {
+            border-color: #666;
+            color: #666;
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <!-- COL 1: CPU STATUS -->
+
+    <header>
+        <h1>TESSER WATCHTOWER <span style="font-size:0.6em; color:#666;">v2.2</span></h1>
+        <div id="conn-status">
+            <span style="font-size:0.8rem; margin-right:10px;">OFFLINE</span>
+            <div class="status-dot"></div>
+        </div>
+    </header>
+
+    <div class="main-grid">
+        <!-- CPU STATUS -->
         <div class="panel">
-            <h2>CPU Core</h2>
-            <div class="metric">
-                <div>PROGRAM COUNTER</div>
-                <div id="pc-val" class="metric-val">0000</div>
+            <h2>CPU State</h2>
+
+            <div class="metric-group">
+                <span class="metric-label">PROGRAM COUNTER</span>
+                <span id="pc-dec" class="metric-value">0000</span>
+                <div id="pc-hex" class="metric-value hex">0x0000</div>
             </div>
-            <div class="metric">
-                <div>STACK POINTER</div>
-                <div id="sp-val" class="metric-val">0</div>
+
+            <div class="metric-group">
+                <span class="metric-label">STACK POINTER (SP)</span>
+                <span id="sp-val" class="metric-value">0</span>
             </div>
-            <div style="margin-top:50px; color: #555;">
-                STATUS: <span style="color:var(--text-color)">RUNNING</span>
+
+            <div class="metric-group">
+                <span class="metric-label">STATUS</span>
+                <span style="color: var(--text-primary); letter-spacing: 1px;">RUNNING</span>
             </div>
         </div>
 
-        <!-- COL 2: THE STACK -->
+        <!-- STACK VISUALIZATION -->
         <div class="panel">
-            <h2>Stack Memory</h2>
-            <div class="stack-wrapper" id="stack-container">
-                <!-- Stack blocks generated by JS -->
+            <h2>Stack Memory (LIFO)</h2>
+            <div id="stack-container" class="stack-tower">
+                <!-- Javascript will populate this -->
             </div>
         </div>
 
-        <!-- COL 3: HARDWARE IO -->
+        <!-- HARDWARE IO -->
         <div class="panel">
-            <h2>MUI Output</h2>
-            <div style="text-align:center; margin-top: 20px;">
-                <div>ACTUATOR ID 0 (LED)</div>
-                <div id="led-indicator" class="hw-indicator">OFF</div>
+            <h2>MUI Bus Events</h2>
+
+            <div class="led-panel">
+                <div style="text-align:center">
+                    <div id="led-0" class="led-indicator">ID 0</div>
+                    <span style="font-size:0.7rem; color:#666">LED</span>
+                </div>
+                <!-- Posso adicionar mais placeholders se precisar -->
             </div>
 
-            <div class="metric" style="text-align:center;">
-                <div>LAST COMMAND</div>
-                <div id="io-cmd" style="font-size: 1.5em; color: var(--highlight);">ID: - | Val: -</div>
+            <h2>Event Log</h2>
+            <div id="console-output" class="console-log">
+                <div class="log-entry sys">> System Initialized.</div>
+                <div class="log-entry sys">> Waiting for telemetry stream...</div>
             </div>
-
-            <div class="io-log" id="conn-status">Waiting for link...</div>
         </div>
     </div>
 
     <script>
-        // Init Stack UI
-        const stackContainer = document.querySelector('#stack-container');
-        for (let i = 0; i < 16; i++) {
-            const div = document.createElement('div');
-            div.className = 'stack-block';
-            div.id = `stack-${i}`;
-            div.innerHTML = `<span>${i}</span><span class="val">--</span>`;
-            stackContainer.appendChild(div); // Appends to bottom (reversed by flex)
-        }
+        // --- CONFIG ---
+        const STACK_SIZE = 16;
 
-        const socket = new WebSocket('ws://localhost:8080');
+        // --- UI REFS ---
+        const stackContainer = document.getElementById('stack-container');
+        const consoleOut = document.getElementById('console-output');
         const connStatus = document.getElementById('conn-status');
 
-        socket.onopen = () => connStatus.innerText = "LINK ESTABLISHED";
-        socket.onclose = () => connStatus.innerText = "LINK LOST";
-
-        socket.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.msg) return;
-
-                // 1. Update CPU
-                document.getElementById('pc-val').innerText = data.pc;
-                document.getElementById('sp-val').innerText = data.sp;
-
-                // 2. Update Stack
-                for (let i = 0; i < 16; i++) {
-                    const block = document.getElementById(`stack-${i}`);
-                    const valSpan = block.querySelector('.val');
-
-                    if (i < data.sp) {
-                        block.classList.add('active');
-                        valSpan.innerText = data.stack[i];
-                    } else {
-                        block.classList.remove('active');
-                        valSpan.innerText = "--";
-                    }
-                }
-
-                // 3. Update Hardware
-                const ioText = `ID: ${data.mui_id} | Val: ${data.mui_val}`;
-                document.getElementById('io-cmd').innerText = ioText;
-
-                // LED Logic (ID 0)
-                const led = document.getElementById('led-indicator');
-                if (data.mui_id === 0 && data.mui_val > 0) {
-                    led.classList.add('on');
-                    led.innerText = "ON";
-                } else if (data.mui_id === 0 && data.mui_val === 0) {
-                    led.classList.remove('on');
-                    led.innerText = "OFF";
-                }
-
-            } catch (e) {
-                console.error("Data error", e);
-            }
+        // --- STATE TRACKING (For Change Detection) ---
+        let lastState = {
+            mui_id: -1,
+            mui_val: -1
         };
+
+        // --- INIT UI ---
+        // Create Stack Slots (0 to 15)
+        // Flex-direction is column-reverse, so appending 0 first puts it at bottom. Correct.
+        for (let i = 0; i < STACK_SIZE; i++) {
+            let slot = document.createElement('div');
+            slot.className = 'stack-slot';
+            slot.id = `slot-${i}`;
+            slot.innerHTML = `
+                <span class="addr-label">0x${i.toString(16).toUpperCase()}</span>
+                <span class="val">--</span>
+            `;
+            stackContainer.appendChild(slot);
+        }
+
+        // --- LOGGING HELPER ---
+        function logMsg(msg, type = 'sys') {
+            const div = document.createElement('div');
+            div.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            div.innerText = `[${time}] ${msg}`;
+            consoleOut.appendChild(div);
+            consoleOut.scrollTop = consoleOut.scrollHeight;
+        }
+
+        // --- WEBSOCKET ---
+        function connect() {
+            const socket = new WebSocket('ws://' + window.location.hostname + ':8080');
+
+            socket.onopen = () => {
+                const dot = connStatus.querySelector('.status-dot');
+                dot.classList.add('online');
+                connStatus.querySelector('span').innerText = "ONLINE";
+                logMsg("Telemetry Uplink Established.");
+            };
+
+            socket.onclose = () => {
+                const dot = connStatus.querySelector('.status-dot');
+                dot.classList.remove('online');
+                connStatus.querySelector('span').innerText = "OFFLINE - RETRYING...";
+                setTimeout(connect, 2000); // Auto-reconnect
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateUI(data);
+                } catch (e) {
+                    console.error("Parse Error", e);
+                }
+            };
+        }
+
+        function updateUI(data) {
+            // 1. CPU
+            document.getElementById('pc-dec').innerText = data.pc.toString().padStart(4, '0');
+            document.getElementById('pc-hex').innerText = "0x" + data.pc.toString(16).toUpperCase().padStart(4, '0');
+            document.getElementById('sp-val').innerText = data.sp;
+
+            // 2. STACK
+            for (let i = 0; i < STACK_SIZE; i++) {
+                const slot = document.getElementById(`slot-${i}`);
+                const valSpan = slot.querySelector('.val');
+
+                // Clear styles
+                slot.className = 'stack-slot';
+
+                if (i < data.sp) {
+                    slot.classList.add('active');
+                    if (i === data.sp - 1) slot.classList.add('top-of-stack');
+
+                    const val = data.stack[i];
+                    valSpan.innerText = `${val} (0x${val.toString(16).toUpperCase()})`;
+                } else {
+                    valSpan.innerText = "--";
+                }
+            }
+
+            // 3. IO EVENTS (Change Detection)
+            // Backend sends the *last executed command*.
+            // We only log if it changed OR if we think it's a pulsed command (harder to detect purely from state).
+            // Simple heuristic: If ID or Val changed, log it.
+            if (data.mui_id !== -1 && (data.mui_id !== lastState.mui_id || data.mui_val !== lastState.mui_val)) {
+                logMsg(`MUI_SET [ID: ${data.mui_id}] -> ${data.mui_val}`, 'io');
+
+                // Visual Flash for LED 0
+                if (data.mui_id === 0) {
+                    const led = document.getElementById('led-0');
+                    if (data.mui_val > 0) led.classList.add('active');
+                    else led.classList.remove('active');
+                }
+
+                lastState.mui_id = data.mui_id;
+                lastState.mui_val = data.mui_val;
+            }
+        }
+
+        // Start
+        connect();
+
     </script>
 </body>
 

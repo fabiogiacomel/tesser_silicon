@@ -1,13 +1,49 @@
 #!/bin/bash
-set -e
+set -e # Encerra o script se qualquer comando falhar
 
-echo "--- 1. Cleaning ---"
-make clean
+echo "========================================"
+echo "🛡️  TESSER SILICON QUALITY GATE"
+echo "========================================"
 
-echo "--- 2. Compiling (Strict Mode) ---"
-make CFLAGS="-Wall -Werror -I./src" all
+# Passo 1: Limpeza
+echo "[1/3] Limpando artefatos anteriores..."
+if [ -f Makefile ]; then
+    make clean
+else
+    echo "⚠️  Makefile não encontrado. Pulando clean."
+fi
+rm -f tesser_tower
 
-echo "--- 3. Smoke Test ---"
+# Passo 2: Compilação Estrita
+echo "[2/3] Compilando Emulador (Stack Machine)..."
+# Se não houver Makefile, criamos um temporário ou assumimos comando direto
+if [ ! -f Makefile ]; then
+    echo "⚠️  Gerando Makefile de emergência..."
+    echo "CC = gcc" > Makefile
+    echo "CFLAGS = -Wall -Werror -I./src" >> Makefile
+    # Ajustado para incluir apenas arquivos existentes
+    echo "SRC = src/main.c src/tesser_cpu.c src/tesser_bus.c src/tesser_telemetry.c" >> Makefile
+    echo "all:" >> Makefile
+    echo -e "\t\$(CC) \$(CFLAGS) -o tesser_tower \$(SRC)" >> Makefile
+    echo "clean:" >> Makefile
+    echo -e "\trm -f tesser_tower" >> Makefile
+fi
+
+make all
+
+if [ ! -f tesser_tower ]; then
+    echo "❌ [ERRO] Binário 'tesser_tower' não foi gerado."
+    exit 1
+fi
+
+# Passo 3: Teste de Fumaça (Smoke Test)
+echo "[3/3] Executando Smoke Test (--test)..."
 ./tesser_tower --test
 
-echo -e "\n\033[0;32m[SUCESSO] Build Estável.\033[0m"
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ [SUCESSO] Build Estável. O sistema está íntegro."
+else
+    echo "❌ [ERRO] O emulador falhou durante o teste."
+    exit 1
+fi

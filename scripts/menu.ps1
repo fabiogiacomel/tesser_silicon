@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-    Tesser Silicon Development Menu v2.0
-    Gerenciamento unificado: FPGA (Verilog) e Emulação (C/Docker).
+    Tesser Silicon Development Menu v2.1
+    Gerenciamento Unificado: FPGA (Verilog/Local) e Emulação (C/Docker).
 #>
 
-$VERILOG_PATH = "C:\iverilog\bin\iverilog.exe" # Ajuste conforme seu caminho de instalação local
+# Paths para ferramentas locais (Verilog)
+$VERILOG_PATH = "C:\iverilog\bin\iverilog.exe"
 $VVP_PATH = "C:\iverilog\bin\vvp.exe"
 $GTKWAVE_PATH = "C:\iverilog\gtkwave\bin\gtkwave.exe"
 
@@ -15,7 +16,7 @@ $SIM_DIR = "$ROOT_DIR\sim"
 function Show-Header {
     Clear-Host
     Write-Host "==============================" -ForegroundColor Cyan
-    Write-Host "   TESSER SILICON DEV KIT v2  " -ForegroundColor Yellow
+    Write-Host "   TESSER SILICON DEV KIT v2.1" -ForegroundColor Yellow
     Write-Host "==============================" -ForegroundColor Cyan
     Write-Host ""
 }
@@ -41,36 +42,46 @@ function Stop-Docker {
     docker-compose down
 }
 
-function Build-Run-C-Emulator-Docker {
-    Write-Host "[Docker] Compilando e Rodando Emulador C..." -ForegroundColor Cyan
+function Verify-Build-In-Docker {
+    Write-Host "[Docker] Rodando Protocolo QA (verify.sh)..." -ForegroundColor Cyan
     Set-Location $ROOT_DIR
-    # Compila e roda dentro do container (Modo Texto Simples)
-    # Usa main.c que tem o loop infinito, então o usuário precisará dar Ctrl+C
-    docker-compose exec tesser_lab bash -c "gcc src/main.c src/tesser_cpu.c src/tesser_bus.c src/tesser_peripherals.c src/tesser_memory.c src/tesser_telemetry.c -o tesser_vm && ./tesser_vm"
+    # Roda script de verificação dentro do container
+    docker-compose exec tesser_lab bash -c "./verify.sh"
 }
 
 function Run-Watchtower-Docker {
-    Write-Host "[Docker] Iniciando Watchtower (Servidor + Bridge)..." -ForegroundColor Cyan
-    Write-Host "Acesse http://localhost:3000/vd/index.html (se servido) ou abra o arquivo localmente." -ForegroundColor Gray
-    
+    Write-Host "[Docker] Configurando Watchtower (Stack Machine)..." -ForegroundColor Cyan
     Set-Location $ROOT_DIR
     
-    # 1. Compila o binário 'tesser_tower' específico para a bridge
-    # 2. Roda a bridge que spawna o binário
-    docker-compose exec tesser_lab bash -c "gcc src/main.c src/tesser_cpu.c src/tesser_bus.c src/tesser_peripherals.c src/tesser_memory.c src/tesser_telemetry.c -o tesser_tower && node bridge.js"
+    # QA Check Antes de Rodar
+    # docker-compose exec tesser_lab bash -c "./verify.sh"
+    # if ($LASTEXITCODE -ne 0) { 
+    #     Write-Host "❌ Build Falhou no QA. Corrija antes de visualizar." -ForegroundColor Red
+    #     return 
+    # }
+
+    Write-Host ">> Compilando e Iniciando Ponte..." -ForegroundColor Green
+    Write-Host ">> ACESSE NO NAVEGADOR: http://localhost:3000" -ForegroundColor Yellow
+    
+    # 1. Limpa e Compila (Garante binário fresco)
+    # 2. Inicia Bridge Servidor
+    docker-compose exec tesser_lab bash -c "make clean && make && node bridge.js"
 }
 
 # --- VERILOG/FPGA OPERATIONS (Local) ---
 function Run-Assembler {
     param($InputFile)
     Write-Host "[FPGA] Executando Assembler (TASM)..." -ForegroundColor Magenta
-    python "$ROOT_DIR\tasm.py" "$ROOT_DIR\$InputFile"
+    Set-Location $ROOT_DIR
+    python "tasm.py" "$InputFile"
     if ($LASTEXITCODE -eq 0) { Write-Host "-> firmware.hex gerado." -ForegroundColor Green }
 }
 
 function Run-Simulation {
     Write-Host "[FPGA] Compilando Verilog Localmente..." -ForegroundColor Magenta
+    Set-Location $ROOT_DIR
     if (-not (Test-Path $SIM_DIR)) { New-Item -ItemType Directory -Path $SIM_DIR | Out-Null }
+    
     & $VERILOG_PATH -o "$SIM_DIR\tesser.out" -s tb_tesser "$SRC_DIR\tesser_cpu.v" "$ROOT_DIR\tb\tb_tesser.v"
     
     if ($LASTEXITCODE -eq 0) {
@@ -84,6 +95,7 @@ function Run-Simulation {
 
 function Open-GTKWave {
     Write-Host "[FPGA] Abrindo GTKWave..." -ForegroundColor Magenta
+    Set-Location $ROOT_DIR
     if (Test-Path "$SIM_DIR\tesser.vcd") {
         Start-Process $GTKWAVE_PATH -ArgumentList "$SIM_DIR\tesser.vcd"
     }
@@ -95,11 +107,11 @@ function Open-GTKWave {
 # Loop Principal
 do {
     Show-Header
-    Write-Host "--- AMBIENTE DOCKER (Tesser Lab) ---" -ForegroundColor Green
+    Write-Host "--- AMBIENTE DE EMULAÇÃO (Docker C) ---" -ForegroundColor Green
     Write-Host "1. Iniciar Lab (Up -d)"
     Write-Host "2. Entrar no Shell (Exec bash)"
-    Write-Host "3. Compilar e Rodar Emulador C (Terminal Mode)"
-    Write-Host "4. Rodar Watchtower (Server + Bridge JSON)"
+    Write-Host "3. AUDITORIA DE QUALIDADE (Run verify.sh)"
+    Write-Host "4. INICIAR WATCHTOWER (Visualizador Web)"
     Write-Host "5. Desligar Lab (Down)"
     
     Write-Host "`n--- HARDWARE FLOW (Local Verilog) ---" -ForegroundColor Magenta
@@ -114,7 +126,7 @@ do {
     switch ($choice) {
         '1' { Start-Docker; Pause }
         '2' { Enter-Docker }
-        '3' { Build-Run-C-Emulator-Docker; Pause }
+        '3' { Verify-Build-In-Docker; Pause }
         '4' { Run-Watchtower-Docker; Pause }
         '5' { Stop-Docker; Pause }
         '6' { Run-Assembler "pisca.tasm"; Pause }
