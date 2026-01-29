@@ -6,9 +6,8 @@ const wss = new WebSocket.Server({ port: 8080 });
 
 console.log("Starting Bridge...");
 
-// Spawn the C Emulator
-// Adjust path if necessary. currently expecting compiled binary in same dir or reachable.
-const emulator = spawn('./tesser_tower.exe', [], { cwd: './' }); 
+// Spawn the C Emulator (Linux Binary)
+const emulator = spawn('./tesser_tower', [], { cwd: './' });
 
 console.log("Emulator process spawned. PID:", emulator.pid);
 
@@ -20,7 +19,7 @@ emulator.stdout.on('data', (data) => {
             // Potential JSON
             try {
                 // Validate JSON
-                JSON.parse(cleanLine); 
+                JSON.parse(cleanLine);
                 // Broadcast to all clients
                 wss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
@@ -32,7 +31,7 @@ emulator.stdout.on('data', (data) => {
                 console.error("Invalid JSON:", cleanLine);
             }
         } else {
-             if (cleanLine) console.log("[EMU]", cleanLine);
+            if (cleanLine) console.log("[EMU]", cleanLine);
         }
     });
 });
@@ -47,5 +46,5 @@ emulator.on('close', (code) => {
 
 wss.on('connection', ws => {
     console.log('Client connected');
-    ws.send(JSON.stringify({msg: "Connected to Tesser Watchtower"}));
+    ws.send(JSON.stringify({ msg: "Connected to Tesser Watchtower" }));
 });

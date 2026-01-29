@@ -1,79 +1,71 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "tesser_cpu.h"
 #include "tesser_bus.h"
-#include "tesser_peripherals.h"
-#include "tesser_memory.h"
-#include "tesser_telemetry.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#define SLEEP_MS(x) Sleep(x)
-#else
-#include <unistd.h>
-#define SLEEP_MS(x) usleep((x)*1000)
-#endif
+// Função para Carregar Firmware Externo
+void load_program_from_hex(const char* filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        printf("CRITICAL EXCEPTION: Firmware file '%s' not found.\n", filename);
+        printf("Hint: Run the Assembler first (menu option 6) or check file path.\n");
+        exit(1);
+    }
 
-int main() {
-    // Silence initial prints to keep JSON stream clean or just accept them as ignored lines
-    // printf("--- Tesser Silicon Watchtower Demo ---\n");
+    uint16_t addr = 0;
+    char line[32];
+    
+    printf("[LOADER] Reading %s...\n", filename);
+    
+    while (fgets(line, sizeof(line), fp)) {
+        // Ignorar linhas vazias ou muito curtas
+        if (strlen(line) < 2) continue;
+        
+        unsigned int byte_val;
+        // Lê hex da linha
+        if (sscanf(line, "%x", &byte_val) == 1) {
+            bus_write(addr, (uint8_t)byte_val);
+            addr++;
+        }
+    }
+    
+    fclose(fp);
+    printf("[LOADER] Success. %d bytes loaded into RAM.\n", addr);
+}
 
-    // 1. Inicialize Sistema
+int main(int argc, char *argv[]) {
+    // 1. Instanciar CPU
     TesserCPU cpu;
     memset(&cpu, 0, sizeof(cpu));
-    cpu.current_privilege_level = PRIV_KERNEL;
+    
+    // Configura contexto global (caso telemetria seja linkada)
+    extern TesserCPU *g_cpu_context;
     g_cpu_context = &cpu;
-
-    peripherals_init();
-    memory_pool_init();
     
-    // 2. Load Program mimicking complex behavior
-    uint16_t prog_ptr = 0;
-
-    // Loop Program:
-    // 0x00: MOV R0, 0x01
-    // 0x04: MOV R1, 0x02
-    // 0x08: ADD R0, R1
-    // ... trigger AES ...
+    // 2. Carregar Programa
+    // Se passado argumento, usa ele, senão usa padrão "firmware.hex"
+    const char* fw_file = "firmware.hex";
+    if (argc > 1) fw_file = argv[1];
     
-    // Simply put: valid instructions in loop
-    // 0: MOV R0, 10
-    bus_write(prog_ptr++, 0x01); bus_write(prog_ptr++, 0x00); bus_write(prog_ptr++, 0x00); bus_write(prog_ptr++, 0x0A);
-    // 4: MOV R1, 20
-    bus_write(prog_ptr++, 0x01); bus_write(prog_ptr++, 0x01); bus_write(prog_ptr++, 0x00); bus_write(prog_ptr++, 0x14);
-    // 8: ADD R0, R1 (R0=30)
-    bus_write(prog_ptr++, 0x02); bus_write(prog_ptr++, 0x00); bus_write(prog_ptr++, 0x01);
+    load_program_from_hex(fw_file);
     
-    // Trigger AES (Store at 0xF000)
-    // MOV R2, 1 (Start)
-    bus_write(prog_ptr++, 0x01); bus_write(prog_ptr++, 0x02); bus_write(prog_ptr++, 0x00); bus_write(prog_ptr++, 0x01);
-    // STORE R2 to CTRL
-    bus_write(prog_ptr++, 0x03); bus_write(prog_ptr++, 0xF0); bus_write(prog_ptr++, 0x00); bus_write(prog_ptr++, 0x02);
+    // 3. Execução
+    printf("Starting CPU Execution...\n");
     
-    int pc_limit = prog_ptr;
-    cpu.pc = 0;
-
-    // Infinite Loop for Visualization
-    while (1) {
-        // Step Hardware
-        peripherals_tick();
-        
-        // Step CPU (only if within program range, else reset)
-        if (cpu.pc < pc_limit) {
-            cpu_step(&cpu);
-        } else {
-            // Reset for demo loop
-             cpu.pc = 0;
-             // Reset AES for fun?
-             // peripherals_init(); // optional
-        }
-
-        // Telemetry
-        dump_json_state();
-        
-        // Slow down for visualizer
-        SLEEP_MS(500);
+    // Executa um número razoável de ciclos para ver o programa rodar
+    // Como o pisca.tasm é um loop, 50 ciclos devem mostrar atividade
+    int max_cycles = 50;
+    
+    for (int i = 0; i < max_cycles; i++) {
+        cpu_step(&cpu);
+        // Opcional: Imprimir estado a cada passo para debug
+        // printf("PC: %04X | R0: %04X\n", cpu.pc, cpu.regs[0]);
     }
+    
+    printf("\n=== Execution Paused after %d cycles ===\n", max_cycles);
+    printf("Final PC: 0x%04X\n", cpu.pc);
+    printf("R0: 0x%04X  R1: 0x%04X\n", cpu.regs[0], cpu.regs[1]);
     
     return 0;
 }
