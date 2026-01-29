@@ -21,7 +21,7 @@ typedef struct {
     uint16_t pc;        // Program Counter
 } TesserCPU;
 
-// Contexto Global (Mantido para compatibilidade com Telemetria futura)
+// Contexto Global (Mantido para compatibilidade com Telemetria)
 extern TesserCPU *g_cpu_context;
 
 void cpu_step(TesserCPU *cpu);

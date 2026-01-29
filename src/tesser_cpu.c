@@ -1,17 +1,12 @@
 #include "tesser_cpu.h"
-#include "tesser_bus.h" // Para ler a ROM (bus_read)
-#include "tesser_telemetry.h" // Inclui variáveis de rastreamento IO
+#include "tesser_bus.h"
+#include "tesser_telemetry.h"
 #include <stdio.h>
 
-#ifdef _WIN32
-#include <windows.h>
-#define SLEEP_MS(x) Sleep(x)
-#else
+// Force Linux/Unix environment compliance as per Boot Prompt
 #include <unistd.h>
 #define SLEEP_MS(x) usleep((x)*1000)
-#endif
 
-// Definição do contexto global
 TesserCPU *g_cpu_context = NULL;
 
 // Helpers de Pilha
@@ -54,7 +49,7 @@ void cpu_step(TesserCPU *cpu) {
             uint8_t id = bus_read(cpu->pc++);
             uint16_t val = stack_pop(cpu);
             
-            // Atualiza telemetria
+            // Telemetria
             last_mui_id = id;
             last_mui_val = val;
             
@@ -62,7 +57,7 @@ void cpu_step(TesserCPU *cpu) {
             break;
         }
 
-        case OP_WAIT: // 0x03 (Pop ms)
+        case OP_WAIT: // 0x03
         {
             uint16_t ms = stack_pop(cpu);
             printf("[HW IO] WAIT %d ms\n", ms);
@@ -91,16 +86,17 @@ void cpu_step(TesserCPU *cpu) {
         
         case OP_MUI_GET: // 0x06 id8
         {
-            bus_read(cpu->pc++); // Read ID but ignore (dummy sensor)
-            uint16_t sensor_val = 123; // Dummy
+            bus_read(cpu->pc++); // Consome ID
+            // Simulação de sensor: valor fixo ou randômico
+            uint16_t sensor_val = 123; 
             stack_push(cpu, sensor_val);
             break;
         }
         
         case OP_SUB: // 0x07
         {
-            uint16_t b = stack_pop(cpu); // Top is B (RHS)
-            uint16_t a = stack_pop(cpu); // Next is A (LHS)
+            uint16_t b = stack_pop(cpu);
+            uint16_t a = stack_pop(cpu);
             stack_push(cpu, a - b);
             break;
         }
@@ -112,15 +108,14 @@ void cpu_step(TesserCPU *cpu) {
             uint16_t addr = (hi << 8) | lo;
             
             uint16_t a = stack_pop(cpu);
-            int16_t val_signed = (int16_t)a;
-            
-            if (val_signed > 0) {
+            if ((int16_t)a > 0) {
                 cpu->pc = addr;
             }
             break;
         }
 
         default:
+            printf("[CPU WARN] Unknown Opcode: 0x%02X at PC: %d\n", opcode, cpu->pc-1);
             break;
     }
 }
