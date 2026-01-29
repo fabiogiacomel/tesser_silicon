@@ -79,19 +79,36 @@ int main(int argc, char *argv[]) {
     extern TesserCPU *g_cpu_context;
     g_cpu_context = &cpu;
     
-    // Carrega Firmware ou Fallback
+    int test_mode = 0;
     const char* filename = "firmware.hex";
-    if (argc > 1) filename = argv[1];
+
+    for(int i=1; i<argc; i++) {
+        if(strcmp(argv[i], "--test") == 0 || strcmp(argv[i], "--smoke") == 0) {
+            test_mode = 1;
+        } else {
+            filename = argv[i];
+        }
+    }
+
     load_firmware_or_fallback(filename);
     
-    // Infinite Loop for Watchtower Server
+    long cycles = 0;
+    
+    // Infinite Loop for Watchtower Server (or limited for Test)
     while (1) {
         cpu_step(&cpu);
-        dump_json_state();
         
-        // Pequena pausa para não saturar CPU do host, 
-        // mas o time principal é controlado pelo OP_WAIT do firmware.
-        SLEEP_MS(50); 
+        if (!test_mode) {
+            dump_json_state();
+            SLEEP_MS(50);
+        } else {
+            cycles++;
+            if (cycles >= 100) break;
+        }
+    }
+    
+    if (test_mode) {
+        printf("[TEST] Simulation completed 100 cycles successfully.\n");
     }
     
     return 0;

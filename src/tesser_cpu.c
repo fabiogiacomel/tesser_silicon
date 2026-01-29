@@ -3,6 +3,14 @@
 #include "tesser_telemetry.h" // Inclui variáveis de rastreamento IO
 #include <stdio.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#define SLEEP_MS(x) Sleep(x)
+#else
+#include <unistd.h>
+#define SLEEP_MS(x) usleep((x)*1000)
+#endif
+
 // Definição do contexto global
 TesserCPU *g_cpu_context = NULL;
 
@@ -62,13 +70,13 @@ void cpu_step(TesserCPU *cpu) {
             break;
         }
 
+        case OP_WAIT: // 0x03 (Pop ms)
+        {
             uint16_t ms = stack_pop(cpu);
             printf("[HW IO] WAIT %d ms\n", ms);
-            #ifdef _WIN32
-            Sleep(ms);
-            #else
-            usleep(ms * 1000);
-            #endif
+            SLEEP_MS(ms);
+            break;
+        }
 
         case OP_JMP: // 0x04 addr16
         {
