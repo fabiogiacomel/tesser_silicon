@@ -32,13 +32,6 @@ uint16_t stack_pop(TesserCPU *cpu) {
     }
 }
 
-uint16_t stack_peek(TesserCPU *cpu) {
-    if (cpu->sp > 0) {
-        return cpu->stack[cpu->sp - 1];
-    }
-    return 0;
-}
-
 void cpu_step(TesserCPU *cpu) {
     g_cpu_context = cpu;
 
@@ -64,7 +57,6 @@ void cpu_step(TesserCPU *cpu) {
             // Atualiza telemetria
             last_mui_id = id;
             last_mui_val = val;
-            
             
             printf("[HW IO] MUI_SET [ID: %d] = %d\n", id, val);
             break;
@@ -107,8 +99,8 @@ void cpu_step(TesserCPU *cpu) {
         
         case OP_SUB: // 0x07
         {
-            uint16_t a = stack_pop(cpu);
-            uint16_t b = stack_pop(cpu);
+            uint16_t b = stack_pop(cpu); // Top is B (RHS)
+            uint16_t a = stack_pop(cpu); // Next is A (LHS)
             stack_push(cpu, a - b);
             break;
         }

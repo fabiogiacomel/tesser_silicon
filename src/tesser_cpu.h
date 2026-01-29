@@ -9,7 +9,7 @@ typedef enum {
     OP_MUI_SET  = 0x02, // MUI_SET id8 (Pop val)
     OP_WAIT     = 0x03, // WAIT (Pop ms)
     OP_JMP      = 0x04, // JMP addr16
-    OP_SMOOTH   = 0x05, // SMOOTH id8 (Pop val) - Same as MUI_SET
+    OP_SMOOTH   = 0x05, // SMOOTH id8 (Pop val)
     OP_MUI_GET  = 0x06, // MUI_GET id8 (Push val)
     OP_SUB      = 0x07, // SUB (Pop A, Pop B -> Push A-B)
     OP_JMP_POS  = 0x08  // JMP_POS addr16 (Pop A, if A>0 jump)

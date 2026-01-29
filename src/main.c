@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "tesser_cpu.h"
 #include "tesser_bus.h"
-#include "tesser_telemetry.h" // Garanta que este .h existe
+#include "tesser_telemetry.h" 
 
 // Flag global para modo de teste
 int g_test_mode = 0;
@@ -64,10 +64,6 @@ int main(int argc, char *argv[]) {
     TesserCPU cpu;
     memset(&cpu, 0, sizeof(cpu));
     
-    // Inicialização (Periféricos, Memória, Bus)
-    // memory_init(); 
-    // peripherals_init();
-
     // Configura contexto global
     extern TesserCPU *g_cpu_context;
     g_cpu_context = &cpu;
