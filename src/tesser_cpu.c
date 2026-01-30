@@ -85,16 +85,38 @@ void cpu_step(TesserCPU *cpu) {
             cpu->pc = addr;
             break;
         }
+
+        case 0x07: // OP_SUB
+        {
+            if (cpu->sp >= 2) {
+                // Lógica: stack[sp-2] = stack[sp-2] - stack[sp-1]
+                int16_t val_b = cpu->stack[cpu->sp - 1]; // Topo
+                int16_t val_a = cpu->stack[cpu->sp - 2]; // Sub-topo
+                cpu->stack[cpu->sp - 2] = val_a - val_b;
+                cpu->sp--; // Pop B
+                printf("[CPU] SUB: %d - %d = %d\n", val_a, val_b, cpu->stack[cpu->sp - 1]);
+            } else {
+                printf("[CPU ERR] SUB Underflow\n");
+            }
+            break;
+        }
         
-        case OP_JMP_POS: // 0x08 addr16 (Conditional Jump if Pop > 0)
+        case 0x08: // OP_JMP_POS
         {
              uint8_t hi = bus_read(cpu->pc++);
              uint8_t lo = bus_read(cpu->pc++);
              uint16_t addr = (hi << 8) | lo;
              
-             uint16_t val = stack_pop(cpu);
-             if ((int16_t)val > 0) {
-                 cpu->pc = addr;
+             if(cpu->sp >= 1) {
+                 int16_t val = (int16_t)cpu->stack[--cpu->sp]; // Pop and cast
+                 if (val > 0) {
+                     cpu->pc = addr;
+                     printf("[CPU] JMP_POS Taken -> %d\n", addr);
+                 } else {
+                     printf("[CPU] JMP_POS Ignored (%d <= 0)\n", val);
+                 }
+             } else {
+                  printf("[CPU ERR] JMP_POS Underflow\n");
              }
              break;
         }

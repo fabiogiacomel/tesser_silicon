@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 # TASM v1.0 Opcodes
 OPCODES = {
@@ -13,7 +14,6 @@ OPCODES = {
     'JMP_POS': 0x08
 }
 
-# Instruction Argument Sizes (in bytes, excluding opcode)
 ARG_SIZES = {
     'PUSH':    2,
     'MUI_SET': 1,
@@ -32,7 +32,7 @@ def parse_line(line):
     line = line.strip()
     return line
 
-def assemble(input_file, output_file):
+def assemble(input_file, output_file, debug_file="debug_map.json"):
     lines = []
     try:
         with open(input_file, 'r') as f:
@@ -43,16 +43,26 @@ def assemble(input_file, output_file):
 
     labels = {}
     current_addr = 0
-    clean_lines = []
+    clean_lines_data = [] # Stores (line_content, original_line_index)
 
     # --- PASS 1: Calculate Addresses & Map Labels ---
     print("--- TASM: Pass 1 (Mapping Labels) ---")
-    for line in lines:
-        line = parse_line(line)
+    
+    # Pre-process lines to map source lines to current addresses
+    # We need to preserve the relationship: Program Address -> Source Line Index
+    
+    debug_source_lines = [l.rstrip() for l in lines]
+    address_to_line_map = {}
+
+    for idx, raw_line in enumerate(lines):
+        line = parse_line(raw_line)
+        
+        # If line is empty or just a comment or label, it doesn't take address space
+        # But a label IS an address marker.
+        
         if not line:
             continue
 
-        # Check for Label Definition (e.g., "START:")
         if line.endswith(':'):
             label = line[:-1]
             labels[label] = current_addr
@@ -63,88 +73,85 @@ def assemble(input_file, output_file):
         mnemonic = parts[0].upper()
 
         if mnemonic not in OPCODES:
-            print(f"Error: Unknown opcode '{mnemonic}' at line: {line}")
+            print(f"Error: Unknown opcode '{mnemonic}' at line {idx+1}: {raw_line}")
             sys.exit(1)
 
-        # Increment address
-        # Opcode (1 byte) + Args size
+        # Record mapping: This address starts at this source line
+        address_to_line_map[str(current_addr)] = idx
+        
+        # Store for Pass 2
+        clean_lines_data.append({
+            'line': line,
+            'addr': current_addr,
+            'parts': parts,
+            'mnemonic': mnemonic
+        })
+
+        # Advance Address
         current_addr += 1 + ARG_SIZES[mnemonic]
-        clean_lines.append(line)
 
     print(f"  Total Program Size: {current_addr} bytes")
 
     # --- PASS 2: Generate Machine Code ---
     print("--- TASM: Pass 2 (Generating Hex) ---")
     hex_output = []
-    current_addr = 0
     
-    for line in clean_lines:
-        parts = line.split()
-        mnemonic = parts[0].upper()
+    for item in clean_lines_data:
+        parts = item['parts']
+        mnemonic = item['mnemonic']
         opcode = OPCODES[mnemonic]
         
-        # Add Opcode Byte
         hex_output.append(f"{opcode:02X}")
-        current_addr += 1
 
         args = parts[1:]
         
         if mnemonic in ['PUSH', 'JMP', 'JMP_POS']:
-            # Expecting 16-bit Argument (Number or Label)
             if len(args) != 1:
                 print(f"Error: {mnemonic} expects 1 argument.")
                 sys.exit(1)
-            
             arg = args[0]
             val = 0
-            
-            # Check if it is a Label
             if arg in labels:
                 val = labels[arg]
             else:
                 try:
-                    # Parse number (handle hex 0x or decimal)
                     val = int(arg, 0)
                 except ValueError:
-                    print(f"Error: Invalid argument '{arg}' for {mnemonic}")
+                    print(f"Error: Invalid argument '{arg}'")
                     sys.exit(1)
             
-            # Format 16-bit (High byte, Low byte)
-            val = val & 0xFFFF # Mask to 16 bits
-            high_byte = (val >> 8) & 0xFF
-            low_byte = val & 0xFF
-            hex_output.append(f"{high_byte:02X}")
-            hex_output.append(f"{low_byte:02X}")
-            current_addr += 2
+            val = val & 0xFFFF
+            hex_output.append(f"{(val >> 8) & 0xFF:02X}")
+            hex_output.append(f"{val & 0xFF:02X}")
             
         elif mnemonic in ['MUI_SET', 'MUI_GET', 'SMOOTH']:
-            # Expecting 8-bit Argument
             if len(args) != 1:
                 print(f"Error: {mnemonic} expects 1 argument.")
                 sys.exit(1)
-            
             try:
                 val = int(args[0], 0)
             except ValueError:
-                print(f"Error: Invalid argument '{args[0]}' for {mnemonic}")
+                print(f"Error: Invalid arg '{args[0]}'")
                 sys.exit(1)
-                
+            
             val = val & 0xFF
             hex_output.append(f"{val:02X}")
-            current_addr += 1
-            
-        elif mnemonic in ['WAIT', 'SUB']:
-            # No Arguments
-            pass
 
-    # --- Write Output ---
+    # --- Write Outputs ---
     with open(output_file, 'w') as f:
-        # Write bytes separated by newlines or spaces
-        # Verilog $readmemh accepts whitespace separated
         for byte in hex_output:
             f.write(byte + "\n")
             
-    print(f"--- Success! Output written to {output_file} ---")
+    # Write Debug Map
+    debug_data = {
+        "source_code": debug_source_lines,
+        "address_map": address_to_line_map
+    }
+    
+    with open(debug_file, 'w') as f:
+        json.dump(debug_data, f, indent=2)
+
+    print(f"--- Success! Hex: {output_file}, Debug Map: {debug_file} ---")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

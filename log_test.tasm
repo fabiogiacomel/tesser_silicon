@@ -1,0 +1,31 @@
+; ==========================================
+; TESSER SILICON: DATASET GENERATOR v1.0
+; Objetivo: Gerar aritmetica e loops para log
+; ==========================================
+
+START:
+    ; --- FASE 1: INGESTÃO DE DADOS ---
+    ; Empilha valores conhecidos para ver no log
+    PUSH 50     ; Base
+    PUSH 10     ; Valor A
+    PUSH 5      ; Valor B
+    
+    ; --- FASE 2: PROCESSAMENTO (Lógica) ---
+    ; Testa se o log captura a operação SUB
+    ; Stack antes: [..., 10, 5]
+    SUB         ; 10 - 5 = 5
+    ; Stack agora: [..., 50, 5]
+    
+    ; --- FASE 3: SAÍDA (IO) ---
+    ; Mostra o resultado (5) no Painel
+    MUI_SET 0
+    WAIT
+    
+    ; --- FASE 4: LIMPEZA ---
+    ; Mostra a base (50)
+    MUI_SET 1
+    WAIT
+    
+    ; --- FASE 5: LOOP ---
+    ; Cria registros repetitivos no dataset
+    JMP START

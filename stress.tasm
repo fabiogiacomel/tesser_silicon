@@ -1,0 +1,26 @@
+; Teste de Respiração (Sobe e Desce)
+START:
+    ; 1. Inspirar (Empilhar)
+    PUSH 10
+    PUSH 20
+    PUSH 30
+    PUSH 40
+    
+    ; 2. Segurar (Pausa visual)
+    WAIT
+    
+    ; 3. Expirar (Desempilhar para o LED ID 0)
+    MUI_SET 0  ; Tira o 40
+    WAIT
+    
+    MUI_SET 0  ; Tira o 30
+    WAIT
+    
+    MUI_SET 0  ; Tira o 20
+    WAIT
+    
+    MUI_SET 0  ; Tira o 10
+    WAIT
+    
+    ; 4. Repetir
+    JMP START

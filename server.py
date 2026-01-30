@@ -1,100 +1,90 @@
-import asyncio
-import websockets
-import subprocess
-import os
 import http.server
 import socketserver
-import threading
-import sys
+import subprocess
+import os
 import json
+import asyncio
+import websockets
+import threading
 
-# Configurações
+PORT = 3000
 HTTP_PORT = 3000
 WS_PORT = 8765
 EMULATOR_BIN = "./tesser_tower"
-FIRMWARE_SRC = "stress.tasm"
-FIRMWARE_HEX = "firmware.hex"
-DEBUG_MAP = "debug_map.json"
 
-def build_system():
-    print("🔨 [BUILD] Rebuild inicial...")
-    # 1. Compilar C (apenas se necessário, mas o make lida com isso)
-    if os.path.exists("Makefile"):
-        try:
-           subprocess.run(["make", "all"], check=True, stdout=subprocess.DEVNULL)
-        except:
-           pass 
+# Configuração de Gravação de Dataset
+RECORDING = True
+DATASET_FILE = "tesser_data.jsonl"
 
 class IDEHandler(http.server.SimpleHTTPRequestHandler):
-    def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Cache-Control', 'no-store')
-        super().end_headers()
-
-    def do_GET(self):
-        # API: Get current source code
-        if self.path == '/api/source':
-            if os.path.exists(FIRMWARE_SRC):
-                with open(FIRMWARE_SRC, 'rb') as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/plain')
-                self.end_headers()
-                self.wfile.write(content)
-            else:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b"; New Program")
-        else:
-            super().do_GET()
-
     def do_POST(self):
-        # API: Receive code, Save, Assemble (TASM)
         if self.path == '/api/deploy':
             content_length = int(self.headers['Content-Length'])
-            code_data = self.rfile.read(content_length)
+            post_data = self.rfile.read(content_length)
             
-            # 1. Save Source
-            with open(FIRMWARE_SRC, 'wb') as f:
-                f.write(code_data)
+            # 1. Save Code
+            with open("firmware.tasm", "wb") as f:
+                f.write(post_data)
             
-            print(f"📝 [IDE] Código recebido ({len(code_data)} bytes). Compilando...")
-
-            # 2. Run TASM
+            # 2. Compile
+            print("🔨 [BUILD] Rebuild inicial...")
             try:
-                # Run tasm.py and capture output
-                result = subprocess.run(
-                    ["python", "tasm.py", FIRMWARE_SRC, FIRMWARE_HEX], 
-                    capture_output=True, 
-                    text=True
-                )
+                # Run tasm.py to generate firmware.hex and debug_map.json
+                res = subprocess.run(["python3", "tasm.py", "firmware.tasm"], capture_output=True, text=True)
                 
-                if result.returncode == 0:
-                    print("✅ [IDE] Compilação OK.")
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"status": "ok", "logs": result.stdout}).encode())
-                else:
-                    print("❌ [IDE] Erro de Compilação.")
-                    self.send_response(400) # Bad Request
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    err_msg = result.stderr if result.stderr else result.stdout
-                    self.wfile.write(json.dumps({"status": "error", "logs": err_msg}).encode())
+                if res.returncode != 0:
+                     self.send_response(400)
+                     self.send_header('Content-type', 'application/json')
+                     self.end_headers()
+                     self.wfile.write(json.dumps({"status": "error", "logs": res.stderr}).encode())
+                     return
 
+                # Compile C Emulator
+                subprocess.run(["make", "all"], check=True)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "logs": "Compilation OK"}).encode())
+                
             except Exception as e:
                 self.send_response(500)
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "server_error", "logs": str(e)}).encode())
+                self.wfile.write(str(e).encode())
+
         else:
-            self.send_response(404)
-            self.end_headers()
+            super().do_POST()
+
+    def do_GET(self):
+        if self.path == '/api/source':
+            if os.path.exists("firmware.tasm"):
+                self.send_response(200)
+                self.end_headers()
+                with open("firmware.tasm", "rb") as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_response(404)
+                self.end_headers()
+        else:
+            super().do_GET()
 
 async def telemetry_handler(websocket):
     print("🔌 [WS] Cliente conectado. Aguardando Handshake...")
     process = None
     
+    # Carrega Mapa de Debug (se existir)
+    debug_map = None
+    try:
+        if os.path.exists("debug_map.json"):
+            with open("debug_map.json", "r") as f:
+                debug_map = json.load(f)
+                print("🗺️ [WS] Debug Map carregado para Flight Recorder.")
+    except Exception as e:
+        print(f"⚠️ [WS] Falha ao carregar debug_map.json: {e}")
+
+    # Contador de passos para o dataset
+    step_count = 0
+
     try:
         # 1. Aguarda Handshake inicial
         msg = await websocket.recv()
@@ -121,11 +111,62 @@ async def telemetry_handler(websocket):
 
         # 3. Define Tarefas de I/O
         async def pipe_stdout():
+            nonlocal step_count
             try:
                 while True:
-                    line = await process.stdout.readline()
-                    if not line: break
-                    await websocket.send(line.decode().strip())
+                    line_bytes = await process.stdout.readline()
+                    if not line_bytes: break
+                    
+                    line_str = line_bytes.decode().strip()
+                    if not line_str: continue
+
+                    # --- FLIGHT RECORDER LOGIC START ---
+                    if RECORDING and debug_map:
+                        try:
+                            # Tenta parsear para capturar dados
+                            state = json.loads(line_str)
+                            if "pc" in state:
+                                pc = state["pc"]
+                                # Lookup no mapa
+                                line_idx = debug_map.get("address_map", {}).get(str(pc))
+                                
+                                source_line = ""
+                                opcode_extracted = ""
+                                if line_idx is not None:
+                                    try:
+                                        source_line = debug_map["source_code"][line_idx].strip()
+                                        # Extrai primeira palavra como Opcode
+                                        parts = source_line.split()
+                                        if parts:
+                                            opcode_extracted = parts[0].replace(':', '')
+                                    except: pass
+                                
+                                stack = state.get("stack", [])[:state.get("sp", 0)]
+                                stack_top = stack[-1] if stack else None
+
+                                # Cria objeto de treino rico
+                                training_entry = {
+                                    "step": step_count,
+                                    "pc": pc,
+                                    "opcode": opcode_extracted,
+                                    "source": source_line,
+                                    "stack_top": stack_top,
+                                    "full_stack": stack,
+                                    "mui_val": state.get("mui_val", 0)
+                                }
+                                
+                                # Grava no arquivo (Append Mode)
+                                with open(DATASET_FILE, "a") as df:
+                                    df.write(json.dumps(training_entry) + "\n")
+                                
+                                step_count += 1
+                        except json.JSONDecodeError:
+                            pass
+                        except Exception as rec_err:
+                            print(f"⚠️ [RECORDER] Erro: {rec_err}")
+                    # --- FLIGHT RECORDER LOGIC END ---
+
+                    await websocket.send(line_str)
             except Exception as e:
                 print(f"Stdout Pipe Error: {e}")
 
@@ -143,8 +184,6 @@ async def telemetry_handler(websocket):
                 print(f"WS Listener Error: {e}")
 
         # 4. Executa em paralelo até desconexão
-        # O pipe_stdout vai morrer quando o processo morrer.
-        # O listen_ws vai morrer quando o websocket fechar.
         await asyncio.gather(pipe_stdout(), listen_ws(), return_exceptions=True)
 
     except websockets.exceptions.ConnectionClosed:
@@ -163,17 +202,16 @@ def start_http_server():
         print(f"🌐 [HTTP] IDE disponível em http://localhost:{HTTP_PORT}/vd/index.html")
         httpd.serve_forever()
 
-async def main():
-    build_system()
-
-    http_thread = threading.Thread(target=start_http_server, daemon=True)
-    http_thread.start()
-
+async def start_ws_server():
     print(f"📡 [WS] Servidor na porta {WS_PORT}")
     async with websockets.serve(telemetry_handler, "0.0.0.0", WS_PORT):
-        await asyncio.Future()
+        await asyncio.Future()  # roda pra sempre
 
 if __name__ == "__main__":
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main())
+    # Inicia HTTP em thread separada
+    http_thread = threading.Thread(target=start_http_server)
+    http_thread.daemon = True
+    http_thread.start()
+
+    # Inicia WebSocket no loop principal
+    asyncio.run(start_ws_server())
