@@ -3,21 +3,23 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>TESSER WATCHTOWER v2.0</title>
+    <title>TESSER IDE COMMANDER</title>
     <style>
         :root {
             --bg-color: #050505;
-            --grid-color: #1a1a1a;
-            --accent-color: #00ff41;
-            --stack-active: #00ff41;
-            --stack-empty: #222;
-            --text-color: #e0e0e0;
-            --highlight: #ff0055;
+            --panel-bg: #111;
+            --accent: #00ff41;
+            --highlight: #ffff00;
+            --inactive: #333;
+            --text-main: #e0e0e0;
+            --stack-active-bg: rgba(0, 255, 65, 0.2);
+            --code-bg: #0a0a0a;
+            --error: #ff3333;
         }
 
         body {
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: var(--text-main);
             font-family: 'Consolas', 'Monaco', monospace;
             display: flex;
             height: 100vh;
@@ -25,289 +27,458 @@
             overflow: hidden;
         }
 
-        /* Layout Grid */
         .container {
             display: grid;
-            grid-template-columns: 250px 1fr 300px;
+            grid-template-columns: 450px 1fr 300px;
             width: 100%;
+            height: 100%;
             gap: 2px;
-            background-color: var(--grid-color);
+            background: #222;
         }
 
         .panel {
-            background-color: var(--bg-color);
-            padding: 20px;
+            background-color: var(--panel-bg);
+            padding: 0;
             display: flex;
             flex-direction: column;
+            border-right: 1px solid #222;
             position: relative;
         }
 
-        h2 {
-            margin-top: 0;
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 10px;
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--accent-color);
-        }
-
-        /* --- STACK VISUALIZATION (Central) --- */
-        .stack-container {
+        .panel-header {
+            padding: 10px 15px;
+            border-bottom: 2px solid var(--accent);
+            background: #151515;
             display: flex;
-            flex-direction: column-reverse;
-            /* Bottom fills up */
-            height: 100%;
-            justify-content: flex-start;
-            gap: 5px;
-            padding: 20px;
-            background: rgba(0, 255, 65, 0.05);
-            border: 1px dashed #333;
-        }
-
-        .stack-slot {
-            height: 40px;
-            background: var(--stack-empty);
-            border: 1px solid #444;
-            display: flex;
-            align-items: center;
             justify-content: space-between;
-            padding: 0 15px;
-            font-size: 1.1rem;
-            color: #555;
-            transition: all 0.2s ease;
+            align-items: center;
         }
 
-        .stack-slot.active {
-            background: rgba(0, 255, 65, 0.2);
-            border-color: var(--accent-color);
-            color: #fff;
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
-            font-weight: bold;
-        }
-
-        .stack-idx {
-            font-size: 0.8rem;
-            color: #444;
-        }
-
-        /* --- HARDWARE PANEL (Right) --- */
-        .hw-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .servo-card {
-            background: #111;
-            border: 1px solid #333;
-            padding: 10px;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .servo-card.active {
-            border-color: var(--highlight);
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.2);
-        }
-
-        .servo-val {
-            font-size: 1.5rem;
-            color: var(--highlight);
-            display: block;
-            margin-top: 5px;
-        }
-
-        .servo-label {
-            font-size: 0.8rem;
-            color: #aaa;
-        }
-
-        /* --- INFO PANEL (Left) --- */
-        .stat-box {
-            margin-bottom: 20px;
-        }
-
-        .stat-label {
-            color: #888;
+        h2 {
             font-size: 0.9rem;
+            margin: 0;
+            color: var(--accent);
+            letter-spacing: 1px;
         }
 
-        .stat-val-huge {
-            font-size: 3rem;
+        /* CONTROLS */
+        .btn {
+            background: #222;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: inherit;
             font-weight: bold;
-            color: #fff;
-        }
-
-        .log-box {
-            flex-grow: 1;
-            border-top: 1px solid #333;
-            margin-top: auto;
             font-size: 0.8rem;
-            color: #666;
-            overflow-y: auto;
-            padding-top: 10px;
+            transition: all 0.2s;
         }
 
-        /* Scanline effect */
-        .scanlines {
-            position: fixed;
+        .btn:hover {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .btn.primary:hover {
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
+        }
+
+        /* EDITOR AREA */
+        #editor-container {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+        }
+
+        textarea.code-editor {
+            width: 100%;
+            height: 100%;
+            background: var(--code-bg);
+            color: #ddd;
+            border: none;
+            padding: 15px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.9rem;
+            resize: none;
+            box-sizing: border-box;
+            line-height: 1.5;
+            outline: none;
+        }
+
+        /* DEBUGGER VIEW (Overlay) */
+        #debugger-view {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.1) 50%, rgba(0, 0, 0, 0.1));
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 10;
+            background: var(--code-bg);
+            overflow-y: auto;
+            display: none;
+            /* Hidden by default */
+        }
+
+        ul.debug-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li.code-line {
+            display: flex;
+            padding: 2px 10px;
+            border-bottom: 1px solid #111;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .line-num {
+            width: 30px;
+            text-align: right;
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        .active-line {
+            background: #2a2a0a;
+            color: #fff !important;
+            border-left: 4px solid var(--highlight);
+        }
+
+        .active-line .line-content {
+            color: var(--highlight);
+            font-weight: bold;
+        }
+
+        /* STACK & MUI */
+        .stack-tower {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 4px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .slot {
+            height: 6%;
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            font-size: 1rem;
+            color: #555;
+        }
+
+        .slot.active {
+            background: var(--stack-active-bg);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .mui-panel {
+            background: #080808;
+            border: 1px solid #333;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .mui-panel.flash {
+            border-color: #fff;
+            background: #222;
         }
     </style>
 </head>
 
 <body>
-
-    <div class="scanlines"></div>
-
     <div class="container">
-        <!-- LEFT: SYSTEM INFO -->
+        <!-- LEFT: CODE COMMANDER -->
         <div class="panel">
-            <h2>System Status</h2>
+            <div class="panel-header">
+                <h2>MISSION CONTROL</h2>
+                <div>
+                    <button class="btn" id="btn-edit" style="display:none;" onclick="enterEditMode()">STOP &
+                        EDIT</button>
 
-            <div class="stat-box">
-                <span class="stat-label">PROGRAM COUNTER</span>
-                <div id="pc-val" class="stat-value stat-val-huge">0x0000</div>
+                    <!-- Playback Controls (Visible in Debug Mode) -->
+                    <span id="debug-controls" style="display:none;">
+                        <button class="btn primary" id="btn-step" onclick="doStep()">⏯ STEP</button>
+                    </span>
+
+                    <!-- Launch Controls -->
+                    <span id="launch-controls">
+                        <button class="btn" onclick="deployCode('run')">🚀 RUN NORMAL</button>
+                        <button class="btn" style="border-color:yellow; color:yellow;" onclick="deployCode('debug')">🐞
+                            DEBUG</button>
+                    </span>
+                </div>
             </div>
 
-            <div class="stat-box">
-                <span class="stat-label">STACK POINTER</span>
-                <div id="sp-val" class="stat-value" style="font-size: 2rem;">0</div>
+            <div id="editor-container">
+                <!-- EDITOR MODE -->
+                <textarea id="source-input" class="code-editor" spellcheck="false">; Tesser Silicon Stress Test
+START:
+    ; Fill Stack (Safe Mode)
+    PUSH 10
+    PUSH 20
+    PUSH 30
+    PUSH 40
+    PUSH 50
+    MUI_SET 0
+    WAIT
+    MUI_SET 0
+    WAIT
+    JMP START</textarea>
+
+                <!-- DEBUG MODE (Hidden initially) -->
+                <div id="debugger-view">
+                    <ul id="debug-list" class="debug-list"></ul>
+                </div>
             </div>
 
-            <div class="stat-box">
-                <span class="stat-label">CPU STATE</span>
-                <div style="color: var(--accent-color);">RUNNING</div>
-            </div>
-
-            <div class="log-box" id="sys-log">
-                > System Initialized...<br>
-                > Waiting for Uplink...
+            <div id="log-panel"
+                style="height: 100px; border-top: 1px solid #333; padding: 10px; font-size: 0.7rem; color: #666; overflow-y: auto;">
+                > System Ready.
             </div>
         </div>
 
-        <!-- CENTER: STACK VISUALIZATION -->
+        <!-- CENTER: STACK -->
         <div class="panel">
-            <h2>Hardware Stack (LIFO)</h2>
-            <div class="stack-container" id="stack-view">
-                <!-- Generated by JS -->
+            <div class="panel-header">
+                <h2>STACK MEMORY</h2>
             </div>
+            <div class="stack-tower" id="tower"></div>
         </div>
 
-        <!-- RIGHT: PERIPHERALS -->
+        <!-- RIGHT: IO -->
         <div class="panel">
-            <h2>MUI Bus Output</h2>
-            <div class="hw-grid">
-                <!-- Servo 0 -->
-                <div class="servo-card" id="servo-0">
-                    <span class="servo-label">MUI ID #0</span>
-                    <span class="servo-val" id="val-0">---</span>
-                </div>
-                <!-- Servo 1 -->
-                <div class="servo-card" id="servo-1">
-                    <span class="servo-label">MUI ID #1</span>
-                    <span class="servo-val" id="val-1">---</span>
-                </div>
-                <!-- Servo 50 (Exemplo) -->
-                <div class="servo-card" id="servo-50">
-                    <span class="servo-label">SMOOTH #50</span>
-                    <span class="servo-val" id="val-50">---</span>
-                </div>
+            <div class="panel-header">
+                <h2>HARDWARE IO</h2>
             </div>
-
-            <div style="margin-top: 30px; border: 1px solid #333; padding: 10px;">
-                <span class="stat-label">RAW TELEMETRY</span>
-                <div id="raw-json" style="font-size: 0.7rem; color: #555; word-wrap: break-word;"></div>
+            <div style="padding: 20px;">
+                <div style="margin-bottom:20px;">
+                    <small>PROGRAM COUNTER</small>
+                    <div id="pc" style="font-size: 2.5rem; color:#fff; font-weight:bold;">0</div>
+                </div>
+                <div class="mui-panel" id="mui-box">
+                    <small>LAST SIGNAL</small>
+                    <div id="mui-val" style="font-size:1.2rem; margin-top:10px; color:var(--accent);">WAITING...</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        const stackView = document.getElementById('stack-view');
+        const editor = document.getElementById('source-input');
+        const debugView = document.getElementById('debugger-view');
+        const debugList = document.getElementById('debug-list');
+        const btnRun = document.getElementById('btn-run');
+        const btnEdit = document.getElementById('btn-edit');
+        const logPanel = document.getElementById('log-panel');
 
-        // Init 16 Stack Slots
-        for (let i = 0; i < 16; i++) {
-            const slot = document.createElement('div');
-            slot.className = 'stack-slot';
-            slot.id = `stack-${i}`;
-            slot.innerHTML = `<span class="stack-idx">${i}</span><span class="val">---</span>`;
-            // Prepend because flex-direction is column-reverse (0 is bottom)
-            stackView.prepend(slot);
-            // Wait, column-reverse makes 'prepend' put it at bottom? 
-            // Standard: append 0, append 1. 
-            // Reverse: 0 is bottom, 1 is above it.
-            // So we loop 0..15 and APPEND.
+        let ws = null;
+        let debugMap = null;
+        let lastHighlight = null;
+
+        // Load initial code
+        fetch('/api/source')
+            .then(r => r.text())
+            .then(txt => editor.value = txt)
+            .catch(e => log("> Error loading source."));
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.innerText = "> " + msg;
+            if (type === 'error') div.style.color = 'var(--error)';
+            if (type === 'success') div.style.color = 'var(--accent)';
+            logPanel.prepend(div);
         }
-        // Fix: clear and append correctly
-        stackView.innerHTML = '';
-        for (let i = 0; i < 16; i++) {
-            const slot = document.createElement('div');
-            slot.className = 'stack-slot';
-            slot.id = `stack-${i}`;
-            slot.innerHTML = `<span class="stack-idx">${i}</span><span class="val">EMPTY</span>`;
-            stackView.appendChild(slot);
-        }
 
-        const socket = new WebSocket('ws://localhost:8080');
+        async function deployCode(mode) {
+            log(`Deploying (Mode: ${mode.toUpperCase()})...`, "info");
 
-        socket.onmessage = (event) => {
+            // Disable buttons immediately
+            const btns = document.querySelectorAll('#launch-controls button');
+            btns.forEach(b => b.disabled = true);
+
+            const code = editor.value;
+
             try {
-                const data = JSON.parse(event.data);
-                if (data.msg) return;
+                // 1. Send Code to Server
+                const res = await fetch('/api/deploy', { method: 'POST', body: code });
+                const data = await res.json();
 
-                // 1. Update PC & SP
-                document.getElementById('pc-val').textContent = "0x" + data.pc.toString(16).toUpperCase().padStart(4, '0');
-                document.getElementById('sp-val').textContent = data.sp;
-                document.getElementById('raw-json').textContent = JSON.stringify(data);
-
-                // 2. Render Stack
-                for (let i = 0; i < 16; i++) {
-                    const el = document.getElementById(`stack-${i}`);
-                    const valEl = el.querySelector('.val');
-
-                    if (i < data.sp) { // Stack slot is used
-                        el.classList.add('active');
-                        // Safe access data.stack[i]
-                        const val = data.stack[i];
-                        valEl.textContent = val + ` (0x${val.toString(16).toUpperCase()})`;
-                    } else {
-                        el.classList.remove('active');
-                        valEl.textContent = "EMPTY";
-                    }
+                if (res.status === 200) {
+                    log("Compilation Successful. Starting Simulation...", "success");
+                    enterSimulationMode(mode);
+                    // Buttons remain disabled here, enabled only on Stop
+                } else {
+                    log("Compilation Failed:", "error");
+                    log(data.logs, "error");
+                    btns.forEach(b => b.disabled = false);
                 }
-
-                // 3. Update Peripherals (Visual Flash)
-                if (data.mui_last_id !== -1) {
-                    const id = data.mui_last_id;
-                    const val = data.mui_last_val;
-
-                    // Update specific cards if they exist
-                    let card = document.getElementById(`servo-${id}`);
-                    if (!card) {
-                        // Dynamic create would be cool, but fixed for now
-                        // Log to sys
-                        // document.getElementById('sys-log').innerHTML += `> MUI[${id}] set to ${val}<br>`;
-                    } else {
-                        document.getElementById(`val-${id}`).textContent = val;
-
-                        // Flash effect
-                        card.classList.add('active');
-                        setTimeout(() => card.classList.remove('active'), 200);
-                    }
-                }
-
             } catch (e) {
-                console.error(e);
+                log("Server Error: " + e, "error");
+                btns.forEach(b => b.disabled = false);
             }
-        };
+        }
+
+        // Send Step Command
+        function doStep() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ cmd: 'step' }));
+            }
+        }
+
+        function enterSimulationMode(mode) {
+            // UI Switch
+            editor.style.display = 'none';
+            debugView.style.display = 'block';
+
+            // Toggle Buttons
+            document.getElementById('launch-controls').style.display = 'none';
+            document.getElementById('btn-edit').style.display = 'inline-block';
+
+            if (mode === 'debug') {
+                document.getElementById('debug-controls').style.display = 'inline-block';
+            } else {
+                document.getElementById('debug-controls').style.display = 'none';
+            }
+
+            // Fetch Debug Map & Connect
+            fetch('/debug_map.json?t=' + Date.now())
+                .then(r => r.json())
+                .then(map => {
+                    debugMap = map;
+                    renderDebugView(map.source_code);
+                    connectWS(mode);
+                });
+        }
+
+        function enterEditMode() {
+            if (ws) ws.close();
+
+            debugView.style.display = 'none';
+            editor.style.display = 'block';
+
+            // Toggle Controls
+            document.getElementById('btn-edit').style.display = 'none';
+            document.getElementById('debug-controls').style.display = 'none';
+            document.getElementById('launch-controls').style.display = 'inline-block';
+
+            // Re-enable Launch Buttons
+            const btns = document.querySelectorAll('#launch-controls button');
+            btns.forEach(b => b.disabled = false);
+
+            log("Simulation Stopped. Edit Mode.", "info");
+        }
+
+        function renderDebugView(lines) {
+            debugList.innerHTML = '';
+            lines.forEach((line, i) => {
+                const li = document.createElement('li');
+                li.className = 'code-line';
+                li.id = 'L' + i;
+                li.innerHTML = `<span class="line-num">${i}</span><span class="line-content">${line}</span>`;
+                debugList.appendChild(li);
+            });
+        }
+
+        function connectWS(mode) {
+            if (!mode) mode = 'run';
+            const wsHost = window.location.hostname;
+
+            // Close existing if open
+            if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+
+            log(`Connecting to Target (Mode: ${mode})...`, "info");
+            ws = new WebSocket(`ws://${wsHost}:8765`);
+
+            ws.onopen = () => {
+                try {
+                    log("Channel Open. Sending Handshake...", "success");
+                    ws.send(JSON.stringify({ cmd: 'start', mode: mode }));
+                } catch (e) {
+                    log("Handshake Error: " + e, "error");
+                }
+            };
+
+            ws.onclose = () => log("Target Disconnected.");
+
+            ws.onmessage = (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    updateUI(d);
+                } catch (err) { }
+            };
+        }
+
+        // --- VISUALIZATION LOGIC ---
+
+        // Init Stack
+        const tower = document.getElementById('tower');
+        for (let i = 0; i < 16; i++) {
+            const d = document.createElement('div');
+            d.className = 'slot'; d.id = 'S' + i;
+            d.innerHTML = `<span>${i}</span><span class='val'>-</span>`;
+            tower.appendChild(d);
+        }
+
+        let lastMuiId = -1; let lastMuiVal = -1;
+        const muiBox = document.getElementById('mui-box');
+        const muiTxt = document.getElementById('mui-val');
+
+        function updateUI(d) {
+            // PC & Highlight
+            document.getElementById('pc').innerText = d.pc;
+            if (debugMap && debugMap.address_map[d.pc] !== undefined) {
+                const lineIdx = debugMap.address_map[d.pc];
+                if (lastHighlight) lastHighlight.classList.remove('active-line');
+                const lineEl = document.getElementById('L' + lineIdx);
+                if (lineEl) {
+                    lineEl.classList.add('active-line');
+                    lineEl.scrollIntoView({ block: "center", behavior: "auto" });
+                    lastHighlight = lineEl;
+                }
+            }
+
+            // Stack
+            for (let i = 0; i < 16; i++) {
+                const s = document.getElementById('S' + i);
+                if (i < d.sp) {
+                    s.classList.add('active');
+                    s.querySelector('.val').innerText = d.stack[i];
+                } else {
+                    s.classList.remove('active');
+                    s.querySelector('.val').innerText = "-";
+                }
+            }
+
+            // MUI
+            if (d.mui_id !== undefined && d.mui_id !== -1) {
+                muiTxt.innerText = `ID: ${d.mui_id} | VAL: ${d.mui_val}`;
+                if (d.mui_id !== lastMuiId || d.mui_val !== lastMuiVal) {
+                    muiBox.classList.remove('flash');
+                    void muiBox.offsetWidth;
+                    muiBox.classList.add('flash');
+                    lastMuiId = d.mui_id; lastMuiVal = d.mui_val;
+                }
+            }
+        }
+
+        // Auto-start in Edit Mode
+        enterEditMode();
+
     </script>
 </body>
 
