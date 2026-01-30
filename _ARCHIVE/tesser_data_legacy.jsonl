@@ -2404,3 +2404,25 @@
 {"step": 8, "pc": 31, "opcode": "MUI_SET", "source": "MUI_SET 0", "stack_top": 999, "full_stack": [999], "mui_val": 222}
 {"step": 9, "pc": 33, "opcode": "WAIT", "source": "WAIT", "stack_top": null, "full_stack": [], "mui_val": 999}
 {"step": 10, "pc": 34, "opcode": "PUSH", "source": "PUSH 0", "stack_top": null, "full_stack": [], "mui_val": 999}
+{"step": 0, "pc": 3, "opcode": "MUI_SET", "source": "MUI_SET 0", "stack_top": 100, "full_stack": [100], "mui_val": 0}
+{"step": 1, "pc": 5, "opcode": "WAIT", "source": "WAIT", "stack_top": null, "full_stack": [], "mui_val": 100}
+{"step": 2, "pc": 6, "opcode": "PUSH", "source": "PUSH 50", "stack_top": null, "full_stack": [], "mui_val": 100}
+{"step": 3, "pc": 9, "opcode": "PUSH", "source": "PUSH 50", "stack_top": 50, "full_stack": [50], "mui_val": 100}
+{"step": 4, "pc": 12, "opcode": "SUB", "source": "SUB      ; Consome ciclo de clock", "stack_top": 50, "full_stack": [50, 50], "mui_val": 100}
+{"step": 5, "pc": 13, "opcode": "PUSH", "source": "PUSH 255", "stack_top": 0, "full_stack": [0], "mui_val": 100}
+{"step": 6, "pc": 16, "opcode": "MUI_SET", "source": "MUI_SET 0", "stack_top": 255, "full_stack": [0, 255], "mui_val": 100}
+{"step": 7, "pc": 18, "opcode": "WAIT", "source": "WAIT", "stack_top": 0, "full_stack": [0], "mui_val": 255}
+{"step": 8, "pc": 19, "opcode": "PUSH", "source": "PUSH 0", "stack_top": 0, "full_stack": [0], "mui_val": 255}
+{"step": 9, "pc": 22, "opcode": "MUI_SET", "source": "MUI_SET 0", "stack_top": 0, "full_stack": [0, 0], "mui_val": 255}
+{"step": 10, "pc": 24, "opcode": "WAIT", "source": "WAIT", "stack_top": 0, "full_stack": [0], "mui_val": 0}
+{"step": 11, "pc": 25, "opcode": "JMP", "source": "JMP START", "stack_top": 0, "full_stack": [0], "mui_val": 0}
+{"step": 12, "pc": 0, "opcode": "PUSH", "source": "PUSH 100", "stack_top": 0, "full_stack": [0], "mui_val": 0}
+{"step": 13, "pc": 3, "opcode": "MUI_SET", "source": "MUI_SET 0", "stack_top": 100, "full_stack": [0, 100], "mui_val": 0}
+{"step": 14, "pc": 5, "opcode": "WAIT", "source": "WAIT", "stack_top": 0, "full_stack": [0], "mui_val": 100}
+{"step": 15, "pc": 6, "opcode": "PUSH", "source": "PUSH 50", "stack_top": 0, "full_stack": [0], "mui_val": 100}
+{"step": 16, "pc": 9, "opcode": "PUSH", "source": "PUSH 50", "stack_top": 50, "full_stack": [0, 50], "mui_val": 100}
+{"step": 17, "pc": 12, "opcode": "SUB", "source": "SUB      ; Consome ciclo de clock", "stack_top": 50, "full_stack": [0, 50, 50], "mui_val": 100}
+{"step": 18, "pc": 13, "opcode": "PUSH", "source": "PUSH 255", "stack_top": 0, "full_stack": [0, 0], "mui_val": 100}
+{"step": 19, "pc": 16, "opcode": "MUI_SET", "source": "MUI_SET 0", "stack_top": 255, "full_stack": [0, 0, 255], "mui_val": 100}
+{"step": 20, "pc": 18, "opcode": "WAIT", "source": "WAIT", "stack_top": 0, "full_stack": [0, 0], "mui_val": 255}
+{"step": 21, "pc": 19, "opcode": "PUSH", "source": "PUSH 0", "stack_top": 0, "full_stack": [0, 0], "mui_val": 255}

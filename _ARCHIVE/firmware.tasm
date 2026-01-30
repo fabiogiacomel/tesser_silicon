@@ -1,0 +1,23 @@
+; TESSER RTOS
+START:
+    ; SLOT 1 (SENSOR)
+    PUSH 100
+    MUI_SET 0
+    WAIT
+
+    ; SLOT 2 (COMPUTE - HIDDEN COST)
+    PUSH 50
+    PUSH 50
+    SUB      ; Consome ciclo de clock
+
+    ; SLOT 3 (ACTUATOR)
+    PUSH 255
+    MUI_SET 0
+    WAIT
+
+    ; SLOT 4 (SYNC)
+    PUSH 0
+    MUI_SET 0
+    WAIT
+
+    JMP START
